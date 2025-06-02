@@ -14,14 +14,15 @@ from utils import *
 
 # Model hyperparameters
 adam_learning_rate = 0.001
-discount_factor = 0.99
-episodes = 250
-end_penalty = -25
+discount_factor = 1
+episodes = 300
+end_penalty = -10
 epsilon_init = 1
-epsilon_decay = 2.0/episodes
-target_update_freq = 500
-memory_size = 10000
-batch_size = 64
+min_epsilon = 0.01
+epsilon_decay = 1.5/episodes
+target_update_freq = 400
+memory_size = 20000
+batch_size = 128
 device = torch.device("cpu")
 
 
@@ -111,7 +112,7 @@ def train():
     steps = 0
     n_target_updates = 0
     n_optimizations = 0
-    for i in range(episodes):
+    for episode in range(episodes):
         state, _ = env.reset()
         rewardTot = 0
         while True:
@@ -134,10 +135,13 @@ def train():
                 target_net.load_state_dict(policy_net.state_dict())
                 n_target_updates += 1
 
+            if rewardTot > 2000:
+                print("Finished early", episode)
+                return
             if done:
-                outcomes[i] = rewardTot
+                outcomes[episode] = rewardTot
                 # Update epsilon
-                epsilon = max(epsilon - epsilon_decay, 0)
+                epsilon = max(epsilon - epsilon_decay, min_epsilon)
                 break
     print("n_target_updates", n_target_updates,
           "n_optimizations", n_optimizations)
@@ -145,7 +149,7 @@ def train():
 
 def plot():
     # Plot outcomes
-    window_size = 10
+    window_size = 5
     moving_avg = np.convolve(outcomes, np.ones(
         window_size)/window_size, mode='valid')
     plt.plot(range(window_size-1, episodes), moving_avg,

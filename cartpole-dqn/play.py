@@ -1,7 +1,3 @@
-# https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
-# https://gymnasium.farama.org/environments/classic_control/cart_pole/
-# actions: 0 = push cart left, 1 = push cart right
-# states: [cart position, cart velocity, pole angle, pole angular velocity] continuous over R
 from collections import deque, namedtuple
 import random
 import gymnasium as gym
@@ -13,25 +9,8 @@ from utils import *
 
 # Settings
 episodes = 50
-
-
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'reward', 'next_state', ))
-
-
-class ReplayMemory(object):
-
-    def __init__(self, capacity):
-        self.memory = deque([], maxlen=capacity)
-
-    def push(self, *args):
-        self.memory.append(Transition(*args))
-
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-
-    def __len__(self):
-        return len(self.memory)
+epsilon = 0.01
+model = -1  # -1 means last trained model, 0-7 are previous well-trained models
 
 
 # Neural network to find Q-values
@@ -53,16 +32,20 @@ class DQN(torch.nn.Module):
 env = gym.make('CartPole-v1',
                render_mode="human")
 policy_net = DQN(env.observation_space.shape[0],  env.action_space.n)
-buffer = torch.load(model_filepath, weights_only=True)
+buffer = torch.load(
+    best_model_filepath(model) if model > -1 else model_filepath, weights_only=True)
 policy_net.load_state_dict(buffer)
 
 outcomes = np.zeros((episodes))
 
 
-def select_action(state):
-    state = torch.FloatTensor(state).unsqueeze(0)
-    q_values = policy_net(state)
-    return torch.argmax(q_values).item()
+def select_action(state, epsilon):
+    if random.random() < epsilon:
+        return env.action_space.sample()
+    else:
+        state = torch.FloatTensor(state).unsqueeze(0)
+        q_values = policy_net(state)
+        return torch.argmax(q_values).item()
 
 
 def play():
@@ -71,7 +54,7 @@ def play():
         rewardTot = 0
         while True:
             # pick an action
-            action = select_action(state)
+            action = select_action(state, epsilon)
 
             # perform the action
             new_state, reward, done, _, _ = env.step(action)
@@ -101,5 +84,5 @@ if __name__ == "__main__":
         pass
     finally:
         env.close()
-        plot()
+        # plot()
         print("Stopping simulation...")
