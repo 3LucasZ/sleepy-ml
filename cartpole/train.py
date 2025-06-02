@@ -1,45 +1,36 @@
-# https://gymnasium.farama.org/environments/toy_text/frozen_lake/
-# https://medium.com/data-science/q-learning-for-beginners-2837b777741
-import time
+# https://gymnasium.farama.org/environments/classic_control/cart_pole/
+# actions: 0 = push cart left, 1 = push cart right
+# states: [cart position, cart velocity, pole angle, pole angular velocity] continuous over R
 import gymnasium as gym
+from matplotlib import pyplot as plt
 import numpy as np
-import matplotlib.pyplot as plt
-
-# Settings
-filename = "frozen_lake/qtable.txt"
-load = True
-slippery = True
-visual = True
-speed = 50
+from utils import *
 
 # Model hyperparameters
-episodes = 10000
-learning_rate = 0.5
-discount_factor = 0.9
-epsilon_init = 0
-epsilon_decay = 5.0/episodes
+episodes = 3000
+learning_rate = 0.1
+discount_factor = 0.99
+epsilon_init = 1
+epsilon_decay = 2.0/episodes
 
-env = gym.make('FrozenLake-v1',
-               render_mode="human" if visual else None, is_slippery=slippery)
-if visual:
-    env.metadata['render_fps'] = speed
-if load:
-    qtable = np.loadtxt(filename, dtype=np.float16)
-else:
-    qtable = np.zeros(
-        (env.observation_space.n, env.action_space.n), dtype=np.float16)
+
+env = gym.make('CartPole-v1',
+               render_mode=None)
+qtable = np.zeros(
+    (len(pos_space)+1, len(d_pos_space)+1, len(ang_space)+1, len(d_ang_space)+1, env.action_space.n), dtype=np.float16)
 outcomes = np.zeros((episodes))
-print("Initial", qtable)
 
 
 def train():
     epsilon = epsilon_init
     for i in range(episodes):
         state, _ = env.reset()
+        state = discretizeState(state)
+        rewardTot = 0
         while True:
             # pick an action
             explore = np.random.random() < epsilon or abs(
-                np.max(qtable[state])) < 1e-9
+                np.max(qtable[state]) - np.min(qtable[state])) < 1e-9
             if explore:
                 action = env.action_space.sample()
             else:
@@ -47,15 +38,16 @@ def train():
 
             # perform the action
             new_state, reward, done, _, _ = env.step(action)
+            rewardTot += reward
+            new_state = discretizeState(new_state)
 
             # update qtable
-            qtable[state, action] = (1-learning_rate)*qtable[state, action] + \
+            qtable[state+(action,)] = (1-learning_rate)*qtable[state+(action,)] + \
                 learning_rate*(reward + discount_factor *
                                np.max(qtable[new_state]))
-
             state = new_state
             if done:
-                outcomes[i] = reward
+                outcomes[i] = rewardTot
                 # Update epsilon
                 epsilon = max(epsilon - epsilon_decay, 0)
                 break
@@ -63,14 +55,14 @@ def train():
 
 def plot():
     # Plot outcomes
-    window_size = 100
+    window_size = 10
     moving_avg = np.convolve(outcomes, np.ones(
         window_size)/window_size, mode='valid')
     plt.plot(range(window_size-1, episodes), moving_avg,
              color="red")
     plt.xlabel("trial")
-    plt.ylabel("success rate")
-    plt.title("Q-Learning Training Outcomes (Frozen Lake)")
+    plt.ylabel("survival time")
+    plt.title("Q-Learning Training Outcomes")
     plt.grid(True)
     plt.legend()
     plt.show()
@@ -82,7 +74,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     finally:
+        env.close()
         plot()
         print("Saving Qtable and stopping training...")
-        print("Final", qtable)
-        np.savetxt(filename, qtable)
+        np.save(filename, qtable)
