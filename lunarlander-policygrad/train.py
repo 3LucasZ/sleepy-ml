@@ -37,7 +37,7 @@ def train():
             # perform the action
             new_state, reward, done, _, _ = env.step(action)
             if reward > 0:
-                reward = reward*3-1.5
+                reward = reward*3-2
             rewards.append(reward)
             log_probs.append(log_prob)
             rewardTot += reward
@@ -79,7 +79,7 @@ def plot():
     plt.plot(range(window_size-1, episodes), moving_avg,
              color="red")
     plt.xlabel("trial")
-    plt.ylabel("survival time")
+    plt.ylabel("reward")
     plt.grid(True)
     plt.show()
 
