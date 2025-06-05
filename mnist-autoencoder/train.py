@@ -4,10 +4,10 @@ import torchvision
 from utils import *
 
 # Hyperparameters
-learning_rate = 0.003
+learning_rate = 0.001
 epochs = 40
 batch_size = 64
-latentDims = 10
+latentDims = 2
 
 # 1. convert to 1D tensor of pixels scaled to [0, 1]
 # 2. normalize to mean, stddev of the pixels; found from https://github.com/pytorch/examples/blob/main/mnist/main.py
@@ -24,41 +24,6 @@ test_loader = torch.utils.data.DataLoader(
 
 print(len(train_dataset))
 print(len(test_dataset))
-
-
-class AutoEncoder(torch.nn.Module):
-    def __init__(self):
-        super(AutoEncoder, self).__init__()
-        self.encoder = torch.nn.Sequential(
-            torch.nn.Flatten(),
-            torch.nn.Linear(28 * 28, 256),
-            torch.nn.ReLU(True),
-            torch.nn.Linear(256, 128),
-            torch.nn.ReLU(True),
-            torch.nn.Linear(128, 64),
-            torch.nn.ReLU(True),
-            torch.nn.Linear(64, 32),
-            torch.nn.ReLU(True),
-            torch.nn.Linear(32, latentDims),
-        )
-        self.decoder = torch.nn.Sequential(
-            torch.nn.Linear(latentDims, 32),
-            torch.nn.ReLU(True),
-            torch.nn.Linear(32, 64),
-            torch.nn.ReLU(True),
-            torch.nn.Linear(64, 128),
-            torch.nn.ReLU(True),
-            torch.nn.Linear(128, 256),
-            torch.nn.ReLU(True),
-            torch.nn.Linear(256, 28 * 28),
-            torch.nn.ReLU(True),
-            torch.nn.Unflatten(1, (1, 28, 28)),
-        )
-
-    def forward(self, x):
-        enc = self.encoder(x)
-        dec = self.decoder(enc)
-        return dec
 
 
 def train(model, train_loader, optimizer, epoch):
@@ -104,7 +69,7 @@ def test(model, test_loader, epoch):
 
 def main():
     torch.manual_seed(32)
-    model = AutoEncoder()
+    model = AutoEncoder(latentDims)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     for epoch in range(1, epochs + 1):
         train(model, train_loader, optimizer, epoch)
